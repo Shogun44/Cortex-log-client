@@ -6,6 +6,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import classification_report
+from sklearn.utils.multiclass import unique_labels
 import joblib
 import os
 
@@ -80,7 +81,8 @@ if uploaded_file:
             X_vectorized = vectorizer.transform(X)
             y_pred = model.predict(X_vectorized)
 
-            report = classification_report(y_encoded, y_pred, target_names=label_encoder.classes_, output_dict=True)
+            labels = unique_labels(y_encoded, y_pred)
+            report = classification_report(y_encoded,y_pred,labels=labels,target_names=label_encoder.inverse_transform(labels),output_dict=True)
             st.subheader("Rapport de classification")
             report_df = pd.DataFrame(report).transpose()
             st.dataframe(report_df)
