@@ -63,7 +63,7 @@ if uploaded_file:
                 st.error("Certaines classes ont moins de 2 exemples. Merci d’en fournir au moins 2 pour chaque type.")
             else:
                 X_train, X_test, y_train, y_test = train_test_split(
-                    X_vectorized, y_encoded, test_size=0.6, stratify=y_encoded, random_state=42
+                    X_vectorized, y_encoded, test_size=0.4, stratify=y_encoded, random_state=42
                 )
 
                 model = MultinomialNB()
