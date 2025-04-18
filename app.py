@@ -141,7 +141,16 @@ if log_file and os.path.exists("modele_incremental.pkl"):
                 "Type d'erreur prédit": labels
             })
 
-            st.dataframe(log_df)
+            def color_ligne(row):
+                couleur = {
+                    "api": "background-color: #FFD700",
+                    "ldap": "background-color: #ADD8E6",
+                    "authentification": "background-color: #FFB6C1",
+                    "base_de_donnees": "background-color: #90EE90",
+                }
+                return [couleur.get(row["Type d'erreur prédit"], "")] * 2
+            st.write("### Résultat de l’analyse avec surlignage par type d'erreur")
+            st.dataframe(log_df.style.apply(color_ligne, axis=1))
             csv = log_df.to_csv(index=False).encode("utf-8")
             st.download_button("Télécharger les prédictions (CSV)", csv, file_name="logs_analyzes.csv")
     except Exception as e:
