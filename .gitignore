@@ -1,0 +1,20 @@
+# Fichiers Python
+__pycache__/
+*.pyc
+
+# Fichiers modèles
+*.pkl
+
+# Fichiers de test
+*.csv
+*.log
+*.txt
+
+# Dossiers Jupyter
+.ipynb_checkpoints/
+
+# Fichiers système
+.DS_Store
+
+# Variables d’environnement (si jamais tu en ajoutes)
+.env
