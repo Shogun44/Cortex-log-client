@@ -150,7 +150,22 @@ if log_file and os.path.exists("modele_incremental.pkl"):
                 }
                 return [couleur.get(row["Type d'erreur prédit"], "")] * 2
             st.write("### Résultat de l’analyse avec surlignage par type d'erreur")
-            st.dataframe(log_df.style.apply(color_ligne, axis=1))
+            # Liste des types d’erreurs prédits
+            types_uniques = sorted(log_df["Type d'erreur prédit"].unique())
+            # Filtre multi-sélection
+            filtre = st.multiselect("Filtrer par type d'erreur :", types_uniques, default=types_uniques)
+            # Filtrage du tableau
+            log_df_filtré = log_df[log_df["Type d'erreur prédit"].isin(filtre)]
+            # Compteur dynamique
+            st.markdown("#### Résumé des types sélectionnés :")
+            for type_ in filtre:
+                nb = (log_df_filtré["Type d'erreur prédit"] == type_).sum()
+                st.markdown(f"- **{type_}** : {nb} logs")
+            # Affichage stylé
+            st.dataframe(log_df_filtré.style.apply(color_ligne, axis=1))
+
+
+
             csv = log_df.to_csv(index=False).encode("utf-8")
             st.download_button("Télécharger les prédictions (CSV)", csv, file_name="logs_analyzes.csv")
     except Exception as e:
