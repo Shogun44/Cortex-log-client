@@ -163,7 +163,24 @@ if log_file and os.path.exists("modele_incremental.pkl"):
                 st.markdown(f"- **{type_}** : {nb} logs")
             # Affichage stylé
             st.dataframe(log_df_filtré.style.apply(color_ligne, axis=1))
+            st.subheader("Corriger manuellement une ligne analysée")
 
+            # Sélection de la ligne à corriger
+            ligne_selectionnee = st.selectbox("Choisir une ligne de log :", log_df_filtré["Ligne du log"].tolist())
+
+            # Prédiction actuelle
+            prediction_actuelle = log_df_filtré[log_df_filtré["Ligne du log"] == ligne_selectionnee]["Type d'erreur prédit"].values[0]
+            st.markdown(f"**Prédiction actuelle** : `{prediction_actuelle}`")
+
+            # Sélection de la bonne classe
+            type_correction = st.selectbox("Sélectionner le bon type :", label_encoder.classes_, key="correction_log")
+
+            if st.button("Corriger et réentraîner avec cette ligne"):
+                X_correction = vectorizer.transform([ligne_selectionnee])
+                y_correction = label_encoder.transform([type_correction])
+                model.partial_fit(X_correction, y_correction)
+                joblib.dump(model, "modele_incremental.pkl")
+                st.success(f"Correction enregistrée : le modèle a appris que cette ligne est une erreur **{type_correction}**")
 
 
             csv = log_df.to_csv(index=False).encode("utf-8")
