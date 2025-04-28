@@ -43,6 +43,31 @@ Ce mini outil vous permet de :
 - Tester un message d'erreur
 - Évaluer un fichier .log brut
 """)
+# Zone d'Aide (version stylée)
+with st.expander("ℹ️ Besoin d'aide pour utiliser l'application ?", expanded=False):
+    st.markdown("""
+    Bienvenue dans l'outil de **détection intelligente des erreurs** !
+
+    Voici comment utiliser les fonctionnalités :
+
+    - 📥 **Importer un fichier CSV** :  
+      Chargez un fichier avec vos messages d'erreur et leur type connu pour entraîner l'intelligence artificielle.
+
+    - 🧠 **Tester un message d'erreur** :  
+      Tapez un message libre pour que l'IA devine automatiquement son type d'erreur.
+
+    - 📄 **Analyser un fichier .log ou .txt** :  
+      Uploadez un fichier brut de logs pour obtenir une analyse automatique de toutes les lignes.
+
+    - ✍️ **Corriger une prédiction** :  
+      Corrigez manuellement si l'IA se trompe sur une erreur, elle apprendra immédiatement de vos corrections !
+
+    - ♻️ **Réinitialiser le modèle** :  
+      Si besoin, repartez de zéro en supprimant l'ancien apprentissage.
+
+    ---
+    👉 *Pensez à entraîner régulièrement l'IA avec des exemples pour la rendre plus intelligente !*
+    """)
 
 # Réinitialisation du modèle
 st.sidebar.header("Options")
