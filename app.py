@@ -7,6 +7,7 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import classification_report
 from sklearn.utils.multiclass import unique_labels
+from sklearn.ensemble import RandomForestClassifier
 import joblib
 import os
 # === Fonctions d’explication et suggestion ===
@@ -112,6 +113,27 @@ if uploaded_file:
                 model = SGDClassifier()
                 model.partial_fit(X_vectorized, y_encoded, classes=list(set(y_encoded)))
 
+            # Test du modèle Random Forest (entraînement classique)
+                rf_model = RandomForestClassifier()
+                rf_model.fit(X_vectorized, y_encoded)
+
+                # Évaluation
+                y_pred_rf = rf_model.predict(X_vectorized)
+                report_rf = classification_report(
+                    y_encoded,
+                    y_pred_rf,
+                    labels=unique_labels(y_encoded, y_pred_rf),
+                    target_names=label_encoder.inverse_transform(unique_labels(y_encoded, y_pred_rf)),
+                    output_dict=True
+                )
+
+                # Affichage des performances
+                st.subheader("Rapport de classification - Random Forest")
+                st.dataframe(pd.DataFrame(report_rf).transpose())
+
+                # Sauvegarde du modèle
+                joblib.dump(rf_model, "modele_rf.pkl")
+
                 # Sauvegarde
                 joblib.dump(model, "modele_incremental.pkl")
                 joblib.dump(vectorizer, "vectorizer.pkl")
@@ -119,19 +141,43 @@ if uploaded_file:
                 model_loaded = True
 
         if model_loaded:
+            # Prédictions avec les deux modèles
             X_vectorized = vectorizer.transform(X)
-            y_pred = model.predict(X_vectorized)
 
-            labels = unique_labels(y_encoded, y_pred)
-            report = classification_report(
-                y_encoded, y_pred,
-                labels=labels,
-                target_names=label_encoder.inverse_transform(labels),
-                output_dict=True
-            )
+            y_pred_sgd = model.predict(X_vectorized)
+
+            # Comparaison entre SGDClassifier (incremental) et Random Forest (entraînement complet)
+            st.subheader("Comparaison des performances entre modèles")
+
+            # Charger le modèle Random Forest
+            if os.path.exists("modele_rf.pkl"):
+                rf_model = joblib.load("modele_rf.pkl")
+                y_pred_rf = rf_model.predict(X_vectorized)
+    
+                # Générer les rapports
+                report_sgd = classification_report(y_encoded, y_pred_sgd, output_dict=True)
+                report_rf = classification_report(y_encoded, y_pred_rf, output_dict=True)
+
+                # Affichage côte à côte
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("### SGDClassifier (incrémental)")
+                    st.dataframe(pd.DataFrame(report_sgd).transpose())
+                with col2:
+                    st.markdown("### Random Forest")
+                    st.dataframe(pd.DataFrame(report_rf).transpose())
+            else :
+                 # Si Random Forest non disponible, afficher uniquement SGDClassifier
+                 report_sgd = classification_report(
+                    y_encoded,
+                    y_pred_sgd,
+                    labels=unique_labels(y_encoded, y_pred_sgd),
+                    target_names=label_encoder.inverse_transform(unique_labels(y_encoded, y_pred_sgd)),
+                    output_dict=True
+                )
             st.subheader("Rapport de classification")
-            st.dataframe(pd.DataFrame(report).transpose())
-
+            st.dataframe(pd.DataFrame(report_sgd).transpose())
+    
             # Test manuel
             st.subheader("Tester une prédiction manuelle")
             user_input = st.text_area("Tape un message d’erreur pour prédiction")
