@@ -8,8 +8,23 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import classification_report
 from sklearn.utils.multiclass import unique_labels
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import LinearSVC
 import joblib
 import os
+import re
+import spacy
+from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+nlp = spacy.load("fr_core_news_sm")
+stopwords_fr = set(stopwords.words("french"))
+
+def nettoyer_message(texte):
+    texte = texte.lower()
+    texte = re.sub(r"[^a-zA-Z\s]", " ", texte)
+    doc = nlp(texte)
+    tokens = [token.lemma_ for token in doc if token.lemma_ not in stopwords_fr and not token.is_punct]
+    return " ".join(tokens)
 # === Fonctions d’explication et suggestion ===
 def expliquer(type_erreur):
     explications = {
@@ -103,9 +118,9 @@ if uploaded_file:
             label_encoder = joblib.load("label_encoder.pkl")
             model_loaded = True
         else:
-            vectorizer = CountVectorizer()
-            X_vectorized = vectorizer.fit_transform(X)
-
+            X_nettoye = X.apply(nettoyer_message)
+            vectorizer = TfidfVectorizer()
+            X_vectorized = vectorizer.fit_transform(X_nettoye)
             class_counts = pd.Series(y_encoded).value_counts()
             if (class_counts < 2).any():
                 st.error("Chaque classe doit avoir au moins 2 exemples.")
@@ -133,56 +148,98 @@ if uploaded_file:
 
                 # Sauvegarde du modèle
                 joblib.dump(rf_model, "modele_rf.pkl")
+                # Entraînement du modèle SVM
+                svm_model = LinearSVC()
+                svm_model.fit(X_vectorized, y_encoded)
+                joblib.dump(svm_model, "modele_svm.pkl")
 
                 # Sauvegarde
                 joblib.dump(model, "modele_incremental.pkl")
                 joblib.dump(vectorizer, "vectorizer.pkl")
                 joblib.dump(label_encoder, "label_encoder.pkl")
                 model_loaded = True
+                
 
         if model_loaded:
-            # Prédictions avec les deux modèles
             X_vectorized = vectorizer.transform(X)
+            y_true = y_encoded
 
+            # Prédiction modèle SGD (déjà chargé)
             y_pred_sgd = model.predict(X_vectorized)
+            report_sgd = classification_report(y_true, y_pred_sgd, output_dict=True)
 
-            # Comparaison entre SGDClassifier (incremental) et Random Forest (entraînement complet)
-            st.subheader("Comparaison des performances entre modèles")
-
-            # Charger le modèle Random Forest
+            # Chargement Random Forest si dispo
             if os.path.exists("modele_rf.pkl"):
                 rf_model = joblib.load("modele_rf.pkl")
                 y_pred_rf = rf_model.predict(X_vectorized)
-    
-                # Générer les rapports
-                report_sgd = classification_report(y_encoded, y_pred_sgd, output_dict=True)
-                report_rf = classification_report(y_encoded, y_pred_rf, output_dict=True)
+                report_rf = classification_report(y_true, y_pred_rf, output_dict=True)
+            else:
+                report_rf = None
 
-                # Affichage côte à côte
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("### SGDClassifier (incrémental)")
-                    st.dataframe(pd.DataFrame(report_sgd).transpose())
-                with col2:
+            # Chargement SVM si dispo
+            if os.path.exists("modele_svm.pkl"):
+                svm_model = joblib.load("modele_svm.pkl")
+                y_pred_svm = svm_model.predict(X_vectorized)
+                report_svm = classification_report(y_true, y_pred_svm, output_dict=True)
+            else:
+                report_svm = None
+
+            st.subheader("Comparaison des modèles")
+
+            cols = st.columns(3)
+
+            # === Bloc 1 : SGD ===
+            with cols[0]:
+                st.markdown("### SGDClassifier")
+                st.dataframe(pd.DataFrame(report_sgd).transpose())
+
+            # === Bloc 2 : Random Forest ===
+            with cols[1]:
+                if report_rf:
                     st.markdown("### Random Forest")
                     st.dataframe(pd.DataFrame(report_rf).transpose())
-            else :
-                 # Si Random Forest non disponible, afficher uniquement SGDClassifier
-                 report_sgd = classification_report(
-                    y_encoded,
-                    y_pred_sgd,
-                    labels=unique_labels(y_encoded, y_pred_sgd),
-                    target_names=label_encoder.inverse_transform(unique_labels(y_encoded, y_pred_sgd)),
-                    output_dict=True
-                )
-            st.subheader("Rapport de classification")
-            st.dataframe(pd.DataFrame(report_sgd).transpose())
-    
+                else:
+                    st.warning("Modèle Random Forest non trouvé.")
+
+            # === Bloc 3 : SVM ===
+            with cols[2]:
+                if report_svm:
+                    st.markdown("### SVM (LinearSVC)")
+                    st.dataframe(pd.DataFrame(report_svm).transpose())
+                else:
+                    st.warning("Modèle SVM non trouvé.")
+            # Comparaison automatique des performances moyennes (f1-score)
+            scores_moyens = {}
+
+            # Extraire le f1-score global de chaque modèle s’il existe
+            try:
+                    scores_moyens["SGDClassifier"] = report_sgd["weighted avg"]["f1-score"]
+            except:
+                pass
+
+            if report_rf:
+                try:
+                        scores_moyens["Random Forest"] = report_rf["weighted avg"]["f1-score"]
+                except:
+                    pass
+
+            if report_svm:
+                try:
+                    scores_moyens["SVM"] = report_svm["weighted avg"]["f1-score"]
+                except:
+                    pass
+
+            # Afficher le meilleur
+            if scores_moyens:
+                meilleur_modele = max(scores_moyens, key=scores_moyens.get)
+                st.success(f"**Modèle le plus performant actuellement : {meilleur_modele}** (F1-score : {scores_moyens[meilleur_modele]:.2f})")
+            else:
+                st.info("Aucun modèle complet disponible pour comparaison.")
             # Test manuel
             st.subheader("Tester une prédiction manuelle")
             user_input = st.text_area("Tape un message d’erreur pour prédiction")
             if user_input:
-                X_test = vectorizer.transform([user_input])
+                X_test = vectorizer.transform([nettoyer_message(user_input)])
                 y_pred = model.predict(X_test)
                 pred_label = label_encoder.inverse_transform(y_pred)[0]
 
@@ -233,7 +290,7 @@ if log_file and os.path.exists("modele_incremental.pkl"):
         if len(log_lines) == 0:
             st.warning("Fichier vide.")
         else:
-            X_log = vectorizer.transform(log_lines)
+            X_log = vectorizer.transform([nettoyer_message(line) for line in log_lines])
             preds = model.predict(X_log)
             labels = label_encoder.inverse_transform(preds)
 
