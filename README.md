@@ -1,125 +1,79 @@
+# Assistant intelligent de classification des erreurs de logs
 
-
-
-⸻
-
-# Classification intelligente des erreurs de logs – IA pour les tests logiciels
-
-Projet académique – Bachelor 3 IABD
-Réalisé chez KORI Asset Management 
-
-## Présentation du projet
-
-Ce projet vise à créer une intelligence artificielle capable de :
-	•	Lire automatiquement les messages d’erreurs issus de tests manuels ou de CI/CD
-	•	Classer chaque message dans une catégorie (API, LDAP, réseau, etc.)
-	•	Expliquer humainement l’origine probable du problème
-	•	Proposer une piste de correction
-	•	Apprendre progressivement à partir des retours utilisateurs
-
-L’outil est basé sur :
-	•	Python (IA)
-	•	Streamlit (interface)
-	•	Scikit-learn (modèle de classification)
-	•	NLTK / SpaCy (nettoyage NLP)
-
-⸻
-
-## Fonctionnalités clés
-	•	Entraînement d’un modèle IA depuis un fichier .csv
-	•	Visualisation des types d’erreurs sous forme de graphique
-	•	Prédiction en direct d’un message d’erreur saisi manuellement
-	•	Réinitialisation possible du modèle pour un nouvel apprentissage
-	•	Extension possible aux erreurs CI/CD (GitLab, Jenkins…)
-
-⸻
-
-## Installation
-
-git clone https://gitlab.com/ton-projet.git
-cd ton-projet
-pip install -r requirements.txt
-streamlit run app.py
-
-
-
-⸻
-
-## Structure du projet
-
-├── app.py                # Interface IA Streamlit
-├── modele_classification.pkl
-├── vectorizer.pkl
-├── label_encoder.pkl
-├── README.md
-├── .gitignore
-└── data/                 # Exemples de fichiers .csv ou .log
-
-
-
-⸻
-
-## Exemple d’utilisation
-	1.	Importer un fichier .csv avec deux colonnes : message, type_erreur
-	2.	Visualiser les catégories existantes
-	3.	Lancer l’apprentissage automatique
-	4.	Taper un message d’erreur à classer
-	5.	Obtenir la catégorie + explication
-
-⸻
-
-## À venir
-	•	Amélioration du modèle avec SVM / Random Forest
-	•	Détection d’erreurs inconnues / ambigües
-	•	Intégration des logs CI/CD (GitLab)
-	•	Historique et feedback utilisateur intégré
-
-⸻
-
-## Auteur
-
-Joan MBALLA
-Bachelor 3 – Intelligence Artificielle et Big Data
-Stage chez KORI Asset Management 
-koriassetmanagement.com
-
-⸻
-
-# Évaluation des Modèles de Classification des Erreurs de Logs
+Ce projet est une application développée avec **Streamlit** permettant d’analyser automatiquement des fichiers de logs, de détecter et classifier les erreurs rencontrées, d’expliquer leur nature et de proposer des pistes de résolution.
 
 ## Objectif
 
-L'objectif est de sélectionner le meilleur modèle de machine learning pour classer automatiquement les erreurs extraites des logs applicatifs.
+L’objectif de ce projet est de fournir un assistant intelligent aux développeurs et équipes DevOps pour :
 
-## Dataset
-
-- Fichier CSV contenant deux colonnes : `message` (texte du log) et `type_erreur` (classe de l’erreur).
-- Nettoyage effectué : minuscules, suppression des caractères spéciaux, lemmatisation, stopwords retirés.
-- Vectorisation : `TfidfVectorizer`
-
-## Méthode de validation
-
-- Division du dataset en **80% entraînement / 20% test** avec `train_test_split`
-- Évaluation sur le set de test avec la métrique **F1-score macro**
-
-## Modèles testés
-
-| Modèle          | F1-score | Commentaire                             |
-|------------------|----------|------------------------------------------|
-| SVM (Support Vector Machine) | **0.78** | Meilleur score actuel, choix retenu     |
-| Sgdclassifier     | 0.73     | Bon score mais moins stable             |
-| Random Forest     | 0.69     | Bon score mais moins stable                |
-
-## Modèle retenu
-
-Le modèle **SVM** est retenu pour la suite du projet.  
-Il offre le meilleur compromis entre performance et généralisation sur les données actuelles.
-
-## Prochaines étapes
-
-- Enrichissement du dataset avec de nouveaux exemples d’erreurs
-- Apprentissage incrémental pour intégrer les corrections manuelles
-- Intégration dans l’interface utilisateur Streamlit
-- Surveillance continue des performances lors des phases de test et de CI/CD
+- Lire et analyser les logs bruts (.log, .txt, etc.)
+- Classifier automatiquement les types d'erreurs
+- Suggérer des explications ou actions à prendre
+- Apprendre de nouvelles erreurs grâce à la correction manuelle
+- Suivre l’évolution des erreurs dans les phases de CI/CD
 
 ---
+
+## Fonctionnalités
+
+- **Lecture de fichiers logs**
+- **Nettoyage intelligent** des messages (lowercase, ponctuation, etc.)
+- **Vectorisation TF-IDF**
+- **Classification via plusieurs modèles** :
+  - SGDClassifier (incrémental)
+  - Random Forest
+  - SVM (meilleure performance actuelle)
+- **Évaluation automatique** (f1-score)
+- **Sauvegarde et réutilisation des modèles**
+- **Correction manuelle** et apprentissage continu
+
+---
+
+## Résultats (f1-score)
+
+| Modèle              | f1-score |
+|---------------------|----------|
+| SGDClassifier       | 0.73     |
+| Random Forest       | 0.69     |
+| SVM (LinearSVC)     | **0.78** |
+
+> Le modèle SVM est actuellement le plus performant.
+
+---
+
+## Installation
+
+### Prérequis
+
+- Python 3.8+
+- pip
+- virtualenv (optionnel mais recommandé)
+
+### Installation locale
+
+```bash
+git clone http://192.168.1.23:8084/joan/classification-logs-app.git
+cd  C:\Users\Pawk68\OneDrive\Bureau\mon_projet_steamlit
+pip install -r requirements.txt
+streamlit run app.py
+
+Utilisation
+	1.	Lancer l’application Streamlit
+	2.	Charger un fichier de logs
+	3.	L’outil nettoie, vectorise, classifie les erreurs et affiche les rapports
+	4.	Possibilité de corriger manuellement une erreur si mal détectée
+
+⸻
+
+Fichiers importants
+	•	app.py : application principale
+	•	modele_svm.pkl, modele_rf.pkl, modele_incremental.pkl : modèles entraînés
+	•	vectorizer.pkl, label_encoder.pkl : outils de transformation
+	•	requirements.txt : dépendances Python
+	•	README.md : documentation technique
+
+⸻
+
+Auteurs
+	•	Joan MBALLA — Étudiant IA chez Keyce Informatique
+	•	Projet réalisé dans le cadre d’un stage chez Zenity / KORI Asset Management
