@@ -121,14 +121,15 @@ if uploaded_file:
             X_nettoye = X.apply(nettoyer_message)
             vectorizer = TfidfVectorizer()
             X_vectorized = vectorizer.fit_transform(X_nettoye)
-            from sklearn.model_selection import train_test_split
-            X_train, X_test, y_train, y_test = train_test_split(X_vectorized, y_encoded, test_size=0.2, random_state=42) 
+           
             class_counts = pd.Series(y_encoded).value_counts()
+            from sklearn.model_selection import train_test_split
+            X_train, X_test, y_train, y_test = train_test_split(X_vectorized, y_encoded, test_size=0.2, random_state=42)
             if (class_counts < 2).any():
                 st.error("Chaque classe doit avoir au moins 2 exemples.")
             else:
                 model = SGDClassifier()
-                model.partial_fit(X_train, y_train, classes=list(set(y_train)))
+                model.partial_fit(X_train, y_train, classes=list(set(y_encoded)))
 
             # Test du modèle Random Forest (entraînement classique)
                 rf_model = RandomForestClassifier()
@@ -139,8 +140,8 @@ if uploaded_file:
                 report_rf = classification_report(
                     y_test,
                     y_pred_rf,
-                    labels=unique_labels(y_encoded, y_pred_rf),
-                    target_names=label_encoder.inverse_transform(unique_labels(y_encoded, y_pred_rf)),
+                    labels=unique_labels(y_test, y_pred_rf),
+                    target_names=label_encoder.inverse_transform(unique_labels(y_test, y_pred_rf)),
                     output_dict=True
                 )
 
@@ -163,28 +164,49 @@ if uploaded_file:
                 
 
         if model_loaded:
-            X_vectorized = vectorizer.transform(X)
-            y_true = y_encoded
+            # Évaluation des performances uniquement sur les données de test
+            st.subheader("Évaluation sur les données de test")
+            X_nettoye = X.apply(nettoyer_message)
+            X_vectorized = vectorizer.transform(X_nettoye)
+            X_train, X_test, y_train, y_test = train_test_split(X_vectorized, y_encoded, test_size=0.2, random_state=42)
 
-            # Prédiction modèle SGD (déjà chargé)
-            y_pred_sgd = model.predict(X_vectorized)
-            report_sgd = classification_report(y_true, y_pred_sgd, output_dict=True)
+            # SGDClassifier (incrémental)
+            y_pred_sgd = model.predict(X_test)
+            report_sgd = classification_report(
+            y_test,
+            y_pred_sgd,
+            labels=unique_labels(y_test, y_pred_sgd),
+            target_names=label_encoder.inverse_transform(unique_labels(y_test, y_pred_sgd)),
+            output_dict=True
+            )
+            st.subheader("Rapport de classification - SGDClassifier")
+            st.dataframe(pd.DataFrame(report_sgd).transpose())
 
-            # Chargement Random Forest si dispo
-            if os.path.exists("modele_rf.pkl"):
-                rf_model = joblib.load("modele_rf.pkl")
-                y_pred_rf = rf_model.predict(X_vectorized)
-                report_rf = classification_report(y_true, y_pred_rf, output_dict=True)
-            else:
-                report_rf = None
+            # Random Forest
+            rf_model = joblib.load("modele_rf.pkl")
+            y_pred_rf = rf_model.predict(X_test)
+            report_rf = classification_report(
+            y_test,
+            y_pred_rf,
+            labels=unique_labels(y_test, y_pred_rf),
+            target_names=label_encoder.inverse_transform(unique_labels(y_test, y_pred_rf)),
+            output_dict=True
+            )
+            st.subheader("Rapport de classification - Random Forest")
+            st.dataframe(pd.DataFrame(report_rf).transpose())
 
-            # Chargement SVM si dispo
-            if os.path.exists("modele_svm.pkl"):
-                svm_model = joblib.load("modele_svm.pkl")
-                y_pred_svm = svm_model.predict(X_vectorized)
-                report_svm = classification_report(y_true, y_pred_svm, output_dict=True)
-            else:
-                report_svm = None
+            # SVM
+            svm_model = joblib.load("modele_svm.pkl")
+            y_pred_svm = svm_model.predict(X_test)
+            report_svm = classification_report(
+            y_test,
+            y_pred_svm,
+            labels=unique_labels(y_test, y_pred_svm),
+            target_names=label_encoder.inverse_transform(unique_labels(y_test, y_pred_svm)),
+            output_dict=True
+            )
+            st.subheader("Rapport de classification - SVM")
+            st.dataframe(pd.DataFrame(report_svm).transpose())
 
             st.subheader("Comparaison des modèles")
 

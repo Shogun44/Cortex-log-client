@@ -106,9 +106,9 @@ L'objectif est de sélectionner le meilleur modèle de machine learning pour cla
 
 | Modèle          | F1-score | Commentaire                             |
 |------------------|----------|------------------------------------------|
-| SVM (Support Vector Machine) | **0.70** | Meilleur score actuel, choix retenu     |
-| Sgdclassifier     | 0.65     | Bon score mais moins stable             |
-| Random Forest     | 0.49     | Moins performant, rejeté                |
+| SVM (Support Vector Machine) | **0.78** | Meilleur score actuel, choix retenu     |
+| Sgdclassifier     | 0.73     | Bon score mais moins stable             |
+| Random Forest     | 0.69     | Bon score mais moins stable                |
 
 ## Modèle retenu
 
