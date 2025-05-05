@@ -84,3 +84,42 @@ Stage chez KORI Asset Management
 koriassetmanagement.com
 
 ⸻
+
+# Évaluation des Modèles de Classification des Erreurs de Logs
+
+## Objectif
+
+L'objectif est de sélectionner le meilleur modèle de machine learning pour classer automatiquement les erreurs extraites des logs applicatifs.
+
+## Dataset
+
+- Fichier CSV contenant deux colonnes : `message` (texte du log) et `type_erreur` (classe de l’erreur).
+- Nettoyage effectué : minuscules, suppression des caractères spéciaux, lemmatisation, stopwords retirés.
+- Vectorisation : `TfidfVectorizer`
+
+## Méthode de validation
+
+- Division du dataset en **80% entraînement / 20% test** avec `train_test_split`
+- Évaluation sur le set de test avec la métrique **F1-score macro**
+
+## Modèles testés
+
+| Modèle          | F1-score | Commentaire                             |
+|------------------|----------|------------------------------------------|
+| SVM (Support Vector Machine) | **0.70** | Meilleur score actuel, choix retenu     |
+| Sgdclassifier     | 0.65     | Bon score mais moins stable             |
+| Random Forest     | 0.49     | Moins performant, rejeté                |
+
+## Modèle retenu
+
+Le modèle **SVM** est retenu pour la suite du projet.  
+Il offre le meilleur compromis entre performance et généralisation sur les données actuelles.
+
+## Prochaines étapes
+
+- Enrichissement du dataset avec de nouveaux exemples d’erreurs
+- Apprentissage incrémental pour intégrer les corrections manuelles
+- Intégration dans l’interface utilisateur Streamlit
+- Surveillance continue des performances lors des phases de test et de CI/CD
+
+---

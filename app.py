@@ -121,21 +121,23 @@ if uploaded_file:
             X_nettoye = X.apply(nettoyer_message)
             vectorizer = TfidfVectorizer()
             X_vectorized = vectorizer.fit_transform(X_nettoye)
+            from sklearn.model_selection import train_test_split
+            X_train, X_test, y_train, y_test = train_test_split(X_vectorized, y_encoded, test_size=0.2, random_state=42) 
             class_counts = pd.Series(y_encoded).value_counts()
             if (class_counts < 2).any():
                 st.error("Chaque classe doit avoir au moins 2 exemples.")
             else:
                 model = SGDClassifier()
-                model.partial_fit(X_vectorized, y_encoded, classes=list(set(y_encoded)))
+                model.partial_fit(X_train, y_train, classes=list(set(y_train)))
 
             # Test du modèle Random Forest (entraînement classique)
                 rf_model = RandomForestClassifier()
-                rf_model.fit(X_vectorized, y_encoded)
+                rf_model.fit(X_train, y_train)
 
                 # Évaluation
-                y_pred_rf = rf_model.predict(X_vectorized)
+                y_pred_rf = rf_model.predict(X_test)
                 report_rf = classification_report(
-                    y_encoded,
+                    y_test,
                     y_pred_rf,
                     labels=unique_labels(y_encoded, y_pred_rf),
                     target_names=label_encoder.inverse_transform(unique_labels(y_encoded, y_pred_rf)),
@@ -150,7 +152,7 @@ if uploaded_file:
                 joblib.dump(rf_model, "modele_rf.pkl")
                 # Entraînement du modèle SVM
                 svm_model = LinearSVC()
-                svm_model.fit(X_vectorized, y_encoded)
+                svm_model.fit(X_train, y_train)
                 joblib.dump(svm_model, "modele_svm.pkl")
 
                 # Sauvegarde
