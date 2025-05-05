@@ -48,6 +48,27 @@ L’objectif de ce projet est de fournir un assistant intelligent aux développe
 - Python 3.8+
 - pip
 - virtualenv (optionnel mais recommandé)
+  
+ ###  Utilisation
+	1.	Lancer l’application Streamlit
+	2.	Charger un fichier de logs
+	3.	L’outil nettoie, vectorise, classifie les erreurs et affiche les rapports
+	4.	Possibilité de corriger manuellement une erreur si mal détectée
+
+⸻
+
+ ### Fichiers importants
+	•	app.py : application principale
+	•	modele_svm.pkl, modele_rf.pkl, modele_incremental.pkl : modèles entraînés
+	•	vectorizer.pkl, label_encoder.pkl : outils de transformation
+	•	requirements.txt : dépendances Python
+	•	README.md : documentation technique
+
+⸻
+
+ ### Auteurs
+	•	Joan MBALLA — Étudiant IA chez Keyce Informatique
+	•	Projet réalisé dans le cadre d’un stage chez Zenity / KORI Asset Management
 
 ### Installation locale
 
@@ -57,23 +78,3 @@ cd  C:\Users\Pawk68\OneDrive\Bureau\mon_projet_steamlit
 pip install -r requirements.txt
 streamlit run app.py
 
-Utilisation
-	1.	Lancer l’application Streamlit
-	2.	Charger un fichier de logs
-	3.	L’outil nettoie, vectorise, classifie les erreurs et affiche les rapports
-	4.	Possibilité de corriger manuellement une erreur si mal détectée
-
-⸻
-
-Fichiers importants
-	•	app.py : application principale
-	•	modele_svm.pkl, modele_rf.pkl, modele_incremental.pkl : modèles entraînés
-	•	vectorizer.pkl, label_encoder.pkl : outils de transformation
-	•	requirements.txt : dépendances Python
-	•	README.md : documentation technique
-
-⸻
-
-Auteurs
-	•	Joan MBALLA — Étudiant IA chez Keyce Informatique
-	•	Projet réalisé dans le cadre d’un stage chez Zenity / KORI Asset Management
