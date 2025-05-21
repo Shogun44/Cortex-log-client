@@ -15,6 +15,20 @@ import re
 import spacy
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
+import csv
+from datetime import datetime
+
+# Fichier historique
+HISTORIQUE_PATH = "historique_erreurs.csv"
+
+# Création du fichier si inexistant
+if not os.path.exists(HISTORIQUE_PATH):
+    with open(HISTORIQUE_PATH, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["horodatage", "message", "type_prédit", "origine", "modèle"])
+
+
+
 
 nlp = spacy.load("fr_core_news_sm")
 stopwords_fr = set(stopwords.words("french"))
@@ -36,7 +50,11 @@ def expliquer(type_erreur):
         "autre": "Erreur inconnue ou pas encore catégorisée."
     }
     return explications.get(type_erreur, "Pas d’explication disponible.")
-
+def ajouter_erreur_dans_historique(message, type_pred, origine="manuel", modele="SGD"):
+    horodatage = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(HISTORIQUE_PATH, mode="a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([horodatage, message, type_pred, origine, modele])
 def suggerer_solution(type_erreur):
     suggestions = {
         "api": "Vérifie le endpoint, les paramètres et regarde les logs du backend.",
@@ -266,7 +284,7 @@ if uploaded_file:
                 X_test = vectorizer.transform([nettoyer_message(user_input)])
                 y_pred = model.predict(X_test)
                 pred_label = label_encoder.inverse_transform(y_pred)[0]
-
+                ajouter_erreur_dans_historique(user_input, pred_label, origine="manuel", modele=meilleur_modele)
                 st.success(f"Type d'erreur prédit  : **{pred_label}**")
                 # Ajout d’une explication et d’une solution avec style
                 explication = expliquer(pred_label)
@@ -283,7 +301,7 @@ if uploaded_file:
             if st.button("Apprendre ce nouvel exemple"):
                 if new_message and new_label:
                     try:
-                        new_vector = vectorizer.transform([new_message])
+                        new_vector = vectorizer.transform([nettoyer_message(new_message)])
                         new_encoded = label_encoder.transform([new_label])
                         model.partial_fit(new_vector, new_encoded)
                         joblib.dump(model, "modele_incremental.pkl")
@@ -322,7 +340,9 @@ if log_file and os.path.exists("modele_incremental.pkl"):
                 "Ligne du log": log_lines,
                 "Type d'erreur prédit": labels
             })
-
+            meilleur_modele = "SVM"
+            for msg, typ in zip(log_lines, labels):
+                ajouter_erreur_dans_historique(msg, typ, origine="log", modele=meilleur_modele)
             def color_ligne(row):
                 couleur = {
                     "api": "background-color: #FFD700",
@@ -358,14 +378,62 @@ if log_file and os.path.exists("modele_incremental.pkl"):
             type_correction = st.selectbox("Sélectionner le bon type :", label_encoder.classes_, key="correction_log")
 
             if st.button("Corriger et réentraîner avec cette ligne"):
-                X_correction = vectorizer.transform([ligne_selectionnee])
+                X_correction = vectorizer.transform([nettoyer_message(ligne_selectionnee)])
                 y_correction = label_encoder.transform([type_correction])
                 model.partial_fit(X_correction, y_correction)
                 joblib.dump(model, "modele_incremental.pkl")
                 st.success(f"Correction enregistrée : le modèle a appris que cette ligne est une erreur **{type_correction}**")
+                X_log = vectorizer.transform([nettoyer_message(line) for line in log_lines])
+                preds = model.predict(X_log)
+                labels = label_encoder.inverse_transform(preds)
+                log_df["Type d'erreur prédit"] = labels 
+                log_df_filtré = log_df[log_df["Type d'erreur prédit"].isin(filtre)]
+                st.rerun()
+
 
 
             csv = log_df.to_csv(index=False).encode("utf-8")
             st.download_button("Télécharger les prédictions (CSV)", csv, file_name="logs_analyzes.csv")
+
     except Exception as e:
         st.error(f"Erreur : {e}")
+# === Historique des erreurs analysées ===
+st.subheader("Historique des erreurs analysées")
+
+import csv
+
+HISTORIQUE_PATH = "historique_erreurs.csv"
+
+# Vérifie si le fichier existe
+if os.path.exists(HISTORIQUE_PATH):
+    historique_df = pd.read_csv(HISTORIQUE_PATH)
+    
+    
+
+    # Option de filtre par type ou origine
+    with st.expander("🔍 Filtrer l'historique", expanded=False):
+        types_disponibles = historique_df["type_prédit"].dropna().unique().tolist()
+        origines_disponibles = historique_df["origine"].dropna().unique().tolist()
+
+        filtre_type = st.multiselect("Filtrer par type :", types_disponibles, default=types_disponibles)
+        filtre_origine = st.multiselect("Filtrer par origine :", origines_disponibles, default=origines_disponibles)
+
+        filtre_df = historique_df[
+            (historique_df["type_prédit"].isin(filtre_type)) &
+            (historique_df["origine"].isin(filtre_origine))
+        ]
+
+        if not filtre_df.empty:
+            st.dataframe(filtre_df)
+        else:
+            st.warning("aucune erreur correspond au filtre")    
+
+    # Export CSV
+    csv_export = historique_df.to_csv(index=False).encode("utf-8")
+    st.download_button("Télécharger l'historique complet", csv_export, file_name="historique_erreurs.csv")
+    # Option : Vider l’historique
+    if st.button("🗑️ Vider l’historique"):
+        os.remove(HISTORIQUE_PATH)
+        st.success("Historique vidé.")
+else:
+    st.info("Aucune erreur historisée pour le moment.")
