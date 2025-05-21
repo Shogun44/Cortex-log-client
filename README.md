@@ -38,6 +38,115 @@ L’objectif de ce projet est de fournir un assistant intelligent aux développe
 | SVM (LinearSVC)     | **0.78** |
 
 > Le modèle SVM est actuellement le plus performant.
+>
+> 
+⸻
+
+📊 Détection intelligente des erreurs de logs
+
+Bienvenue dans cette application Streamlit d’analyse intelligente des messages d’erreurs et logs systèmes.
+Ce projet vise à fournir un assistant intelligent durant les phases de tests et de CI/CD, pour mieux comprendre, diagnostiquer, et corriger les erreurs.
+
+⸻
+
+🚀 Objectifs
+	•	Lire automatiquement des messages de logs (.csv, .log, .txt)
+	•	Classer les erreurs selon leur type (api, ldap, base_de_donnees, etc.)
+	•	Donner une explication claire de l’erreur détectée
+	•	Proposer une piste de résolution
+	•	Permettre un apprentissage continu à partir des corrections manuelles
+	•	Historiser chaque analyse dans un fichier CSV
+
+⸻
+
+🧠 Fonctionnalités principales
+
+📥 Import de données
+	•	Import d’un fichier CSV avec deux colonnes : message, type_erreur
+	•	Nettoyage automatique des messages : minuscules, suppression des caractères spéciaux, lemmatisation, suppression des stopwords
+
+🧠 Entraînement & comparaison de modèles
+	•	Trois modèles sont entraînés :
+	•	SGDClassifier
+	•	RandomForestClassifier
+	•	SVM (LinearSVC)
+	•	Le texte est vectorisé avec TfidfVectorizer
+	•	Un tableau compare les F1-scores de chaque modèle
+	•	Le modèle le plus performant est automatiquement sélectionné
+
+🧪 Test manuel
+	•	L’utilisateur peut saisir un message d’erreur libre
+	•	Le modèle prédit le type, explique le contexte, et propose une action
+
+📄 Analyse de fichier .log ou .txt
+	•	Lecture de chaque ligne
+	•	Prédiction automatique du type d’erreur
+	•	Affichage des résultats avec surlignage
+	•	Possibilité de corriger manuellement
+	•	Téléchargement du fichier annoté
+
+⸻
+
+🧠 Historique & Apprentissage
+
+🔁 Correction manuelle
+	•	Si le modèle se trompe, l’utilisateur peut sélectionner la bonne classe
+	•	Le modèle apprend immédiatement grâce à partial_fit()
+
+📊 Historique des erreurs
+	•	Chaque prédiction est enregistrée dans historique_erreurs.csv avec :
+	•	Le message
+	•	Le type prédit
+	•	Le modèle utilisé
+	•	L’origine (log ou manuel)
+	•	La date/heure
+	•	L’utilisateur peut :
+	•	Filtrer par type ou origine
+	•	Visualiser l’évolution des erreurs
+	•	Exporter l’historique
+
+⸻
+
+📦 Structure du projet
+
+├── app.py                         # Code principal de l'application Streamlit
+├── modele_incremental.pkl        # Modèle SGD entraîné de façon incrémentale
+├── modele_rf.pkl                 # Modèle Random Forest
+├── modele_svm.pkl                # Modèle SVM
+├── vectorizer.pkl                # TfidfVectorizer
+├── label_encoder.pkl             # Encodage des classes
+├── historique_erreurs.csv        # Historique de toutes les erreurs analysées
+├── README.md                     # Ce fichier
+└── requirements.txt              # Fichier des dépendances
+
+
+⸻
+
+🛠️ Installation
+	1.	Créer un environnement :
+
+conda create -n log_ai_env python=3.10
+conda activate log_ai_env
+
+	2.	Installer les dépendances :
+
+pip install -r requirements.txt
+python -m nltk.downloader stopwords
+python -m spacy download fr_core_news_sm
+
+	3.	Lancer l’application :
+
+streamlit run app.py
+
+
+⸻
+
+📅 Dernière mise à jour
+
+21/05/2025
+
+⸻
+
 
 ---
 
