@@ -1,0 +1,27 @@
+[
+  {
+    "exemple": "Failed to connect to database",
+    "titre": "Erreur de connexion à la base de données",
+    "explication": "L’application n’a pas pu se connecter à la base. Mauvais mot de passe, serveur injoignable ou mauvaise configuration réseau."
+  },
+  {
+    "exemple": "Authentication failed for user",
+    "titre": "Échec d’authentification",
+    "explication": "Le système a rejeté l’identification de l’utilisateur. Vérifiez les identifiants ou le service d’authentification."
+  },
+  {
+    "exemple": "Timeout while waiting for response",
+    "titre": "Temps d’attente dépassé",
+    "explication": "Une opération a pris trop de temps. Cela peut venir d’un service lent ou bloqué."
+  },
+  {
+    "exemple": "NullPointerException",
+    "titre": "Erreur d’objet non initialisé",
+    "explication": "Une variable n’a pas été correctement initialisée. Cela provoque une erreur à l’exécution."
+  },
+  {
+    "exemple": "Connection refused by LDAP server",
+    "titre": "Échec de connexion LDAP",
+    "explication": "Le serveur LDAP a refusé la connexion. Vérifiez sa disponibilité et les paramètres d’accès."
+  }
+]

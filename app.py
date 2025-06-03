@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import base64
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -17,6 +18,145 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 import csv
 from datetime import datetime
+from semantic_model import cluster_erreurs
+from core.preprocessing import nettoyer_message
+from core.explication import  expliquer, suggerer_solution
+from core.historique import ajouter_erreur_dans_historique
+
+# Logo centré
+# Configuration de la page
+st.set_page_config(page_title="CortexLog",
+    page_icon="🧠",
+    layout="wide")  
+
+st.markdown("""
+<div style="position: absolute; top: 10px; left: 10px;">
+    <a href="?reset=1"><img src="Reload.png" width="40"></a>
+</div>
+
+<div style="position: absolute; bottom: 10px; left: 10px;">
+    <a href="?historique=1"><img src="Magnifying-glass.png" width="40"></a>
+</div>
+
+<div style="position: absolute; bottom: 10px; right: 10px;">
+    <a href="?aide=1"><img src="Information-button.png" width="40"></a>
+</div>
+""", unsafe_allow_html=True)
+
+from urllib.parse import parse_qs
+query_params = st.experimental_get_query_params()
+
+if "reset" in query_params:
+    for file in ["modele_incremental.pkl", "vectorizer.pkl", "label_encoder.pkl"]:
+        if os.path.exists(file):
+            os.remove(file)
+    st.success("Modèle réinitialisé avec succès.")
+
+# Appliquer un fond personnalisé et du CSS global
+def inject_css():
+    st.markdown("""
+        <style>
+        /* Masquer header/footer */
+        header, footer {visibility: hidden;}
+
+        /* Fond avec image */
+        .stApp {
+            background-image: url("350.png");
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Logo centré */
+        #logo-container {
+            display: flex;
+            justify-content: center;
+            margin-top: -30px;
+            margin-bottom: 20px;
+        }
+
+        #logo-container img {
+            width: 100px;
+        }
+
+        /* Position des boutons */
+        #top-left, #bottom-left, #bottom-right {
+            position: fixed;
+            z-index: 9999;
+        }
+
+        #top-left {
+            top: 15px;
+            left: 15px;
+        }
+
+        #bottom-left {
+            bottom: 15px;
+            left: 15px;
+        }
+
+        #bottom-right {
+            bottom: 15px;
+            right: 15px;
+        }
+
+        /* Style des blocs centraux */
+        .bloc-action {
+            background: transparent;
+            border: 2px solid red;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .bloc-img {
+            width: 80px;
+            margin-bottom: 10px;
+        }
+
+        </style>
+    """, unsafe_allow_html=True)
+
+inject_css()
+
+
+# Logo centré
+st.markdown('<div id="logo-container"><img src="logo222.png"></div>', unsafe_allow_html=True)
+
+# Bouton réinitialisation en haut à gauche
+st.markdown(f'''
+<div id="top-left">
+    <a href="?reset=1"><img src="Reload.png" width="40"></a>
+</div>
+''', unsafe_allow_html=True)
+
+# Bloc principal central : CSV et Log
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown('<div class="bloc-action">', unsafe_allow_html=True)
+    st.image("Document.png", width=60)
+    csv_file = st.file_uploader("Importer un fichier CSV avec colonnes `message` et `type_erreur`", type="csv", label_visibility="collapsed", key="csv_import")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col2:
+    st.markdown('<div class="bloc-action">', unsafe_allow_html=True)
+    st.image("Download.png", width=60)
+    log_file = st.file_uploader("Importer un fichier .log ou .txt", type=["log", "txt"], label_visibility="collapsed", key="log_import")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Bouton loupe (historique) en bas à gauche
+st.markdown(f'''
+<div id="bottom-left">
+    <a href="#historique"><img src="Magnifying-glass.png" width="40"></a>
+</div>
+''', unsafe_allow_html=True)
+
+# Bouton aide (point d’interrogation) en bas à droite
+st.markdown(f'''
+<div id="bottom-right">
+    <a href="#aide"><img src="Information-button.png" width="40"></a>
+</div>
+''', unsafe_allow_html=True)
 
 # Fichier historique
 HISTORIQUE_PATH = "historique_erreurs.csv"
@@ -30,89 +170,42 @@ if not os.path.exists(HISTORIQUE_PATH):
 
 
 
-nlp = spacy.load("fr_core_news_sm")
-stopwords_fr = set(stopwords.words("french"))
-
-def nettoyer_message(texte):
-    texte = texte.lower()
-    texte = re.sub(r"[^a-zA-Z\s]", " ", texte)
-    doc = nlp(texte)
-    tokens = [token.lemma_ for token in doc if token.lemma_ not in stopwords_fr and not token.is_punct]
-    return " ".join(tokens)
-# === Fonctions d’explication et suggestion ===
-def expliquer(type_erreur):
-    explications = {
-        "api": "Erreur sur une route API. Cela peut venir d'une mauvaise URL, méthode ou paramètre.",
-        "ldap": "Erreur liée à l’annuaire LDAP (identifiant ou serveur).",
-        "authentification": "Les identifiants fournis semblent incorrects.",
-        "base_de_donnees": "Problème d’accès ou de requête vers la base PostgreSQL.",
-        "réseau": "Le service distant n’a pas répondu ou a mis trop de temps.",
-        "autre": "Erreur inconnue ou pas encore catégorisée."
-    }
-    return explications.get(type_erreur, "Pas d’explication disponible.")
-def ajouter_erreur_dans_historique(message, type_pred, origine="manuel", modele="SGD"):
-    horodatage = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open(HISTORIQUE_PATH, mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow([horodatage, message, type_pred, origine, modele])
-def suggerer_solution(type_erreur):
-    suggestions = {
-        "api": "Vérifie le endpoint, les paramètres et regarde les logs du backend.",
-        "ldap": "Confirme l'identifiant ou contacte un administrateur LDAP.",
-        "authentification": "Teste avec un autre utilisateur ou réinitialise le mot de passe.",
-        "base_de_donnees": "Teste la connexion à la base, vérifie les credentials ou les requêtes SQL.",
-        "réseau": "Vérifie la connexion internet ou le pare-feu.",
-        "autre": "Consulte un développeur ou analyse le log complet."
-    }
-    return suggestions.get(type_erreur, "Pas de suggestion disponible.")
-
-# Titre
-st.set_page_config(page_title="Classification des erreurs de logs", layout="wide")
-st.title("Détection et apprentissage incrémental des erreurs de logs")
-
-st.markdown("""
-Ce mini outil vous permet de :
-- Visualiser les erreurs dans les logs sous forme de graphiques
-- Entraîner un modèle IA incrémental pour classifier automatiquement les messages d'erreur
-- Tester un message d'erreur
-- Évaluer un fichier .log brut
-""")
 # Zone d'Aide (version stylée)
-with st.expander("ℹ️ Besoin d'aide pour utiliser l'application ?", expanded=False):
+if "aide" in query_params:
+
     st.markdown("""
-    Bienvenue dans l'outil de **détection intelligente des erreurs** !
+    Voici comment utiliser CortexLog :
 
-    Voici comment utiliser les fonctionnalités :
-
-    - 📥 **Importer un fichier CSV** :  
-      Chargez un fichier avec vos messages d'erreur et leur type connu pour entraîner l'intelligence artificielle.
-
-    - 🧠 **Tester un message d'erreur** :  
-      Tapez un message libre pour que l'IA devine automatiquement son type d'erreur.
-
-    - 📄 **Analyser un fichier .log ou .txt** :  
-      Uploadez un fichier brut de logs pour obtenir une analyse automatique de toutes les lignes.
-
+    - 📥 **Importer un CSV** : pour entraîner l’IA à partir de vos messages d’erreur connus.
+    - 📄 **Analyser un fichier .log brut** : pour classer automatiquement chaque ligne.
+    - 🔄 **Réinitialiser le modèle** : pour repartir de zéro.
+    - 🔍 **Historique** : suivez toutes les erreurs analysées et corrigées.
     - ✍️ **Corriger une prédiction** :  
       Corrigez manuellement si l'IA se trompe sur une erreur, elle apprendra immédiatement de vos corrections !
 
-    - ♻️ **Réinitialiser le modèle** :  
-      Si besoin, repartez de zéro en supprimant l'ancien apprentissage.
 
     ---
-    👉 *Pensez à entraîner régulièrement l'IA avec des exemples pour la rendre plus intelligente !*
+    Pensez à entraîner régulièrement l’IA avec vos exemples pour l’améliorer.
     """)
 
 # Réinitialisation du modèle
-st.sidebar.header("Options")
-if st.sidebar.button("🔄 Réinitialiser le modèle"):
-    for file in ["modele_incremental.pkl", "vectorizer.pkl", "label_encoder.pkl"]:
-        if os.path.exists(file):
-            os.remove(file)
-    st.sidebar.success("Modèle réinitialisé avec succès.")
+col1, col2 = st.columns([0.08, 0.92])
+with col1:
+    if st.button("", key="reset_btn"):
+        for file in ["modele_incremental.pkl", "vectorizer.pkl", "label_encoder.pkl"]:
+            if os.path.exists(file):
+                os.remove(file)
+        st.success("Modèle réinitialisé avec succès.")
+    st.image("asset/Reload.png", width=32)
 
+st.markdown('<div class="custom-box">', unsafe_allow_html=True)
 # Chargement CSV
-uploaded_file = st.file_uploader("Importer un fichier CSV avec colonnes `message` et `type_erreur`", type="csv")
+col_csv1, col_csv2 = st.columns([0.08, 0.92])
+with col_csv1:
+    st.image("asset/histo.png", width=32)
+with col_csv2:
+    uploaded_file = st.file_uploader("Importer un fichier CSV avec colonnes `message` et `type_erreur`", type="csv")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
@@ -168,16 +261,16 @@ if uploaded_file:
                 st.dataframe(pd.DataFrame(report_rf).transpose())
 
                 # Sauvegarde du modèle
-                joblib.dump(rf_model, "modele_rf.pkl")
+                joblib.dump(rf_model, "models/modele_rf.pkl")
                 # Entraînement du modèle SVM
                 svm_model = LinearSVC()
                 svm_model.fit(X_train, y_train)
-                joblib.dump(svm_model, "modele_svm.pkl")
+                joblib.dump(svm_model, "models/modele_svm.pkl")
 
                 # Sauvegarde
-                joblib.dump(model, "modele_incremental.pkl")
-                joblib.dump(vectorizer, "vectorizer.pkl")
-                joblib.dump(label_encoder, "label_encoder.pkl")
+                joblib.dump(model, "models/modele_incremental.pkl")
+                joblib.dump(vectorizer, "models/vectorizer.pkl")
+                joblib.dump(label_encoder, "models/label_encoder.pkl")
                 model_loaded = True
                 
 
@@ -315,9 +408,17 @@ if uploaded_file:
 else:
     st.info("Veuillez importer un fichier CSV pour commencer.")
 
+st.markdown('<div class="custom-box">', unsafe_allow_html=True)
 # Évaluation fichier .log brut
 st.subheader("Analyser un fichier de logs brut (.log / .txt)")
-log_file = st.file_uploader("Importer un fichier .log ou .txt", type=["log", "txt"], key="log_file")
+col_log1, col_log2 = st.columns([0.08, 0.92])
+with col_log1:
+    st.image("asset/Document.png", width=32)
+with col_log2:
+    log_file = st.file_uploader("Importer un fichier .log ou .txt", type=["log","txt"], key="log_file")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
 
 if log_file and os.path.exists("modele_incremental.pkl"):
     try:
@@ -393,13 +494,18 @@ if log_file and os.path.exists("modele_incremental.pkl"):
 
 
             csv = log_df.to_csv(index=False).encode("utf-8")
-            st.download_button("Télécharger les prédictions (CSV)", csv, file_name="logs_analyzes.csv")
+            col_dl1, col_dl2 = st.columns([0.08, 0.92])
+            with col_dl1:
+                st.image("asset/Download.png", width=32)
+            with col_dl2:
+                st.download_button("Télécharger les prédictions (CSV)", csv, file_name="logs_analyzes.csv")
 
     except Exception as e:
         st.error(f"Erreur : {e}")
 # === Historique des erreurs analysées ===
-st.subheader("Historique des erreurs analysées")
-
+if "show_history" in st.session_state and st.session_state["show_history"]:
+    st.subheader("Historique des erreurs analysées")
+   
 import csv
 
 HISTORIQUE_PATH = "historique_erreurs.csv"
@@ -430,10 +536,81 @@ if os.path.exists(HISTORIQUE_PATH):
 
     # Export CSV
     csv_export = historique_df.to_csv(index=False).encode("utf-8")
-    st.download_button("Télécharger l'historique complet", csv_export, file_name="historique_erreurs.csv")
+    col_hist1, col_hist2 = st.columns([0.08, 0.92])
+    with col_hist1:
+        st.image("asset/Download.png", width=32)
+    with col_hist2:
+        st.download_button("Télécharger l'historique complet", csv_export, file_name="historique_erreurs.csv")
     # Option : Vider l’historique
     if st.button("🗑️ Vider l’historique"):
         os.remove(HISTORIQUE_PATH)
         st.success("Historique vidé.")
 else:
     st.info("Aucune erreur historisée pour le moment.")
+# Bouton Historique (loupe)
+
+
+    st.markdown("---")
+    if st.button("Historique", key="history_btn"):
+        st.session_state["show_history"] = True
+    st.image("asset/Magnifying-glass.png", width=32)
+# Bouton Aide (?)
+
+if st.button("Aide", key="help_btn"):
+    st.session_state["show_help"] = True
+st.image("asset/Information-button.png", width=32)
+
+# === Regroupement sémantique et rapport intelligent ===
+st.subheader("🔎 Regroupement sémantique et rapport d’erreurs intelligent")
+
+from semantic_model import cluster_erreurs, generer_rapport_clusters, generer_pdf
+import io
+
+input_text = st.text_area("Colle ici les erreurs à regrouper (une par ligne)")
+
+if st.button("Analyser et générer rapport"):
+    if input_text.strip():
+        messages = [line.strip() for line in input_text.splitlines() if line.strip()]
+        clusters = cluster_erreurs(messages, n_clusters=3)
+
+        st.success(f"{len(messages)} erreurs regroupées en {len(clusters)} clusters.")
+        for cluster_id, group in clusters.items():
+            st.markdown(f"### 🔹 Groupe {cluster_id + 1}")
+            for msg in group:
+                st.markdown(f"- {msg}")
+
+        # Génération du rapport
+        rapport_txt = generer_rapport_clusters(clusters)
+
+        # Aperçu texte
+        st.markdown("### 📄 Aperçu du rapport")
+        st.text(rapport_txt)
+
+        # Export TXT
+        buffer_txt = io.StringIO()
+        buffer_txt.write(rapport_txt)
+        buffer_txt.seek(0)
+
+        st.download_button(
+            label="⬇️ Télécharger le rapport (.txt)",
+            data=buffer_txt,
+            file_name="rapport_erreurs.txt",
+            mime="text/plain"
+        )
+
+        # Export PDF
+        pdf = generer_pdf(rapport_txt)
+        pdf_output = io.BytesIO()
+        pdf.output(pdf_output)
+        pdf_output.seek(0)
+
+        st.download_button(
+            label="⬇️ Télécharger le rapport (.pdf)",
+            data=pdf_output,
+            file_name="rapport_erreurs.pdf",
+            mime="application/pdf"
+        )
+    else:
+        st.warning("Aucun message détecté.")
+
+        
